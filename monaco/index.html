@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monaco Editor</title>
+    <script src="https://unpkg.com/monaco-editor@0.33.0/min/vs/loader.js"></script>
+    <style>
+        html, body { height: 100%; margin: 0; }
+        #container { width: 100%; height: 90vh; }
+    </style>
+</head>
+<body>
+<div id="container"></div>
+<script src="inputHandler.js"></script>
+<script src="monaco.js" defer></script>
+<button onclick="sendToCpp('yoyoyyo')">Send Code to C++</button>
+</body>
+</html>
