@@ -1,0 +1,23 @@
+// Eat
+if (touch(Grass) == Below) { eat(Grass); }
+
+// Want to move?
+if (chance(0.25)) {
+  // Want to move, so decide a direction
+  int r = random(0, 4);
+  if (r == 0) {
+    // Don't do anything
+  } else if (r == 1) {
+    // Is there any grass north from us?
+    if (touch(Grass) == North) { move(North, 10); }
+  } else if (r == 2) {
+    // Is there any grass east from us?
+    if (touch(Grass) == East) { move(East, 10); }
+  } else if (r == 3) {
+    // Is there any grass south from us?
+    if (touch(Grass) == South) { move(South, 10); }
+  } else if (r == 4) {
+    // Is there any grass west from us?
+    if (touch(Grass) == West) { move(West, 10); }
+  }
+}
