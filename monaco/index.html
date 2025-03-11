@@ -5,15 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monaco Editor</title>
     <script src="https://unpkg.com/monaco-editor@0.33.0/min/vs/loader.js"></script>
-    <style>
-        html, body { height: 100%; margin: 0; }
-        #container { width: 100%; height: 90vh; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+
 </head>
 <body>
+<div id="selection-box">
+    <span class="selection-item" onclick="selectOption(this)">Option 1</span>
+    <span class="selection-item" onclick="selectOption(this)">Option 2</span>
+    <span class="selection-item" onclick="selectOption(this)">Option 3</span>
+    <span class="selection-item" onclick="selectOption(this)">Option 4</span>
+</div>
+
+<!-- Container for Monaco Editor -->
 <div id="container"></div>
-<script src="inputHandler.js"></script>
-<script src="monaco.js" defer></script>
-<button onclick="sendToCpp('yoyoyyo')">Send Code to C++</button>
+
+<!-- Button -->
+<script src="{{ url_for('static', filename='suggestions.js') }}"></script>
+<script src="{{ url_for('static', filename='monaco.js') }}" defer></script>
+<script src="{{ url_for('static', filename='inputHandler.js') }}"></script>
 </body>
 </html>

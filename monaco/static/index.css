@@ -1,0 +1,137 @@
+html, body { height: 100%; margin: 0; }
+#container {
+    position: absolute;
+    /*top: 50px; !* Ensure it starts below the overlay *!*/
+    left: 0;
+    width: 100%;
+    height: 100vh; /* Adjust height to fit the screen */
+    z-index: 5;
+}
+
+/*html, body {*/
+/*    height: 100%;*/
+/*    margin: 0;*/
+/*    overflow: hidden;*/
+/*}*/
+
+/*#container {*/
+/*    width: 100%;*/
+/*    height: 500px; !* Set a fixed height *!*/
+/*    border: 1px solid #ccc; !* Optional: Add a border for visibility *!*/
+
+/*}*/
+
+.monaco-editor .suggest-widget {
+    /*display: flex !important; !* Forces horizontal layout *!*/
+    /*flex-direction: row !important; !* Places suggestions side by side *!*/
+    /*width: 500px !important; !* Makes the suggestion box wider *!*/
+    width: auto !important;
+    min-width: 500px !important;
+    border: 1px solid #892d2d;
+    background: #6a0000;
+    /*border: 1px solid #892d2d;*/
+    /*background: #6a0000;*/
+    padding: 5px;
+    z-index: 1000 !important;
+}
+
+/*.monaco-editor .suggest-widget .monaco-list {*/
+/*    flex: 1;*/
+/*    border-right: 1px solid #ccc; !* Creates a visible separation *!*/
+/*    padding-right: 5px;*/
+/*}*/
+
+/*.monaco-editor .suggest-widget .monaco-list:last-child {*/
+/*    border-right: none;*/
+/*}*/
+
+.highlighted-word {
+    background-color: #b31b44;
+    border-radius: 3px;
+    padding: 2px;
+}
+
+#selection-box {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background: #f3f3f3;
+    border-bottom: 1px solid #ddd;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.selection-item {
+    padding: 5px 15px;
+    background: #0078d7;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.3s;
+}
+
+.selection-item:hover {
+    background: #005a9e;
+}
+
+.selection-item.selected {
+    background: #555;
+}
+
+/* Custom CSS for Monaco Editor's suggestion box */
+
+/* Style the suggestion widget container */
+.suggest-widget {
+    background-color: #2d2d2d; /* Dark background */
+    border: 1px solid #444; /* Border color */
+    border-radius: 4px; /* Rounded corners */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Shadow */
+    transition: opacity 0.1s ease-in-out;
+}
+
+/* Style the list of suggestions */
+.monaco-list {
+    background-color: transparent; /* Transparent background */
+}
+
+/* Style each suggestion row */
+/*.monaco-list-row {*/
+/*    padding: 4px 8px; !* Padding for each row *!*/
+/*    color: #ccc; !* Default text color *!*/
+/*}*/
+
+/* Style the selected suggestion row */
+.monaco-list-row.focused {
+    background-color: #444; /* Background color for selected row */
+    color: #fff; /* Text color for selected row */
+}
+
+/* Style the highlighted part of the suggestion label */
+.monaco-highlighted-label {
+    color: #ffcc00; /* Highlight color */
+    font-weight: bold; /* Bold text for highlighted part */
+}
+
+/* Style the details pane (if enabled) */
+.suggest-details {
+    /*background-color: #3d3d3d; !* Background color *!*/
+    /*border-top: 1px solid #444; !* Border at the top *!*/
+    /*padding: 8px; !* Padding *!*/
+    /*color: #ccc; !* Text color *!*/
+    display: block !important;
+    background-color: #2d2d2d !important;
+    color: #fff !important;
+}
+
+/* Style the details pane header */
+.suggest-details .header {
+    font-weight: bold; /* Bold text for header */
+    color: #fff; /* Header text color */
+}
+
+/* Style the details pane documentation */
+.suggest-details .docs {
+    color: #aaa; /* Documentation text color */
+}
+
