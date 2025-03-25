@@ -1,5 +1,5 @@
 
-
+// import ASTService from './parser.js';
 document.addEventListener("DOMContentLoaded", function () {
     require.config({ paths: { vs: "https://unpkg.com/monaco-editor@0.33.0/min/vs" } });
 

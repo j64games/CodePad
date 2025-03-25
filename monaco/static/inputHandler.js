@@ -1,8 +1,37 @@
+let option_selected = false;
+let selected_option = null;
+
+const MovementConfig = {
+    initialDelay: 300,
+    minDelay: 25, //currentDelay is max(minDelay, currentDelay * acceleration)
+    acceleration: 0.85, //inverse relation!
+    deadzone: 0.2
+};
+
+let movementState = {
+    horizontal: {
+        active: false,
+        direction: 0,
+        lastMoveTime: 0,
+        currentDelay: MovementConfig.initialDelay
+    },
+    vertical: {
+        active: false,
+        direction: 0,
+        lastMoveTime: 0,
+        currentDelay: MovementConfig.initialDelay
+    }
+};
+
+let isUndoTriggered = false;
+let isRedoTriggered = false;
+const TRIGGER_THRESHOLD = 0.95;
+
 
 window.updateMonacoEditor = function(data) {
     if (window.editor) {
         const currentValue = window.editor.getValue();
-        window.editor.setValue(currentValue + "\n" + data); // Append data to the editor
+        window.editor.setValue(currentValue + "\n" + data);
     }
 };
 
@@ -39,34 +68,6 @@ window.addEventListener("gamepaddisconnected", (e) => {
     );
 });
 
-// Function to check if a button is pressed
-function buttonPressed(gamepad, buttonIndex) {
-    if (gamepad.buttons[buttonIndex].pressed) {
-        return true;
-    }
-    return false;
-}
-
-let isTwoColumnLayout = false;
-
-function toggleSuggestionLayout() {
-    const suggestWidget = document.querySelector('.monaco-editor .suggest-widget');
-
-    if (isTwoColumnLayout) {
-        // Reset to default layout
-        suggestWidget.style.display = '';
-        suggestWidget.style.flexDirection = '';
-        suggestWidget.style.width = '';
-    } else {
-        // Apply two-column layout
-        suggestWidget.style.display = 'flex';
-        suggestWidget.style.flexDirection = 'row';
-        suggestWidget.style.width = '500px';
-    }
-
-    isTwoColumnLayout = !isTwoColumnLayout;
-}
-
 function getWordAtPosition(model, position) {
     const lineContent = model.getLineContent(position.lineNumber);
 
@@ -78,15 +79,15 @@ function getWordAtPosition(model, position) {
     // Define delimiters (whitespace, parentheses, commas, etc.)
     const delimiters = [" ", "(", ")", "{", "}", "[", "]", ",", ";", "."];
 
-    // Find the start of the word
+    // Find the end of the word
     let end = col;
     while (end <= lineContent.length && !delimiters.includes(lineContent[end - 1])) {
         end++;
     }
 
-    // Find the end of the word
+    // Find the start of the word
     let start = col;
-    while (start < lineContent.length && !delimiters.includes(lineContent[start - 1])) {
+    while (start >= 0 && !delimiters.includes(lineContent[start - 1])) {
         start--;
     }
     // console.log("this is the return value:Q", lineContent.substring(start, end -1));
@@ -96,7 +97,6 @@ function getWordAtPosition(model, position) {
     return [start, end - 1];
 }
 
-
 let currentDecorations = [];
 let lastHighlightedWord = "";
 let isSelectionBoxFocused = true;
@@ -105,7 +105,6 @@ let buttonStates = new Array(17).fill(false);
 
 
 const operators = ["==", "!=", ">", "<", ">=", "<=", "&&", "||", "+", "-", "*", "/", "%", "="];
-
 function highlightCursorWord() {
     const model = window.editor.getModel();
     if (!model) return;
@@ -114,6 +113,7 @@ function highlightCursorWord() {
     const lineContent = model.getLineContent(position.lineNumber);
 
     // **If the line is a comment, clear highlight and return**
+    //TODO include comment after code
     if (lineContent.trimStart().startsWith("//")) {
         clearHighlight();
         return;
@@ -122,7 +122,7 @@ function highlightCursorWord() {
     // Detect words
     const wordPosInfo = getWordAtPosition(model, position);
     let word = lineContent.substring(wordPosInfo[0], wordPosInfo[1]);
-    // console.log("This is the word bro: ", word);
+
     if (!word) {
         clearHighlight();
         return;
@@ -137,15 +137,14 @@ function highlightCursorWord() {
     const endColumn = wordPosInfo[1];
 
     currentDecorations = window.editor.deltaDecorations(currentDecorations, [
-        {
+        { // + 1 because monaco col starts at 1
             range: new monaco.Range(position.lineNumber, startColumn + 1, position.lineNumber, endColumn + 1),
             options: { inlineClassName: "highlighted-word" }
         }
     ]);
-    console.log("The last word ", lastHighlightedWord);
+    // console.log("The last word ", lastHighlightedWord);
 }
 
-// **Function to clear highlights**
 function clearHighlight() {
     if (lastHighlightedWord !== "") {
         currentDecorations = window.editor.deltaDecorations(currentDecorations, []);
@@ -154,14 +153,11 @@ function clearHighlight() {
 }
 
 
-
 // Get references to the overlay and word list
 const selectionBox = document.getElementById("selection-box");
 
 function updateSelectionBox() {
     const items = selectionBox.querySelectorAll('.selection-item');
-    console.log("these are the items: ", items);
-    console.log("this is the selectedIndex: ", selectedIndex);
     items.forEach((item, index) => {
         item.classList.toggle('selected', index === selectedIndex);
     });
@@ -184,37 +180,104 @@ let isSuggestionWidgetVisible = false;
 window.editor.onDidChangeContentWidget((event) => {
     isSuggestionWidgetVisible = event.isVisible;
 });
+
+function addIfStatement() {
+    //TODO always add to a new line + have the correct amount of tabs
+    const editor = window.editor;
+    const position = editor.getPosition();
+    const textToInsert = `if() {\n\t\n\t}`;
+
+    editor.executeEdits('add-if', [{
+        range: {
+            startLineNumber: position.lineNumber,
+            startColumn: position.column,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column
+        },
+        text: textToInsert,
+    }]);
+
+    // Move cursor inside the parentheses
+    const newLine = position.lineNumber;
+    const newColumn = 4; // Position after '('
+    editor.setPosition({ lineNumber: newLine, column: newColumn });
+    editor.focus();
+    // Trigger suggestions
+    editor.trigger('custom1', 'editor.action.triggerSuggest', {});
+}
+
+function updateInnerBox(text) {
+    const innerBox = document.querySelector('.inner-box');
+
+    if (text.trim() !== "") {
+        innerBox.style.display = "flex"; // Show the box
+        innerBox.textContent = text; // Insert text
+    } else {
+        innerBox.style.display = "none"; // Hide if empty
+    }
+}
+
+function addNewLine(){
+    const position = window.editor.getPosition(); // Get current cursor position
+
+    // Define new line text and position
+    const newLineText = "\n";
+    const newPosition = new monaco.Position(position.lineNumber + 1, 1);
+
+    // Insert new line at current position
+    window.editor.executeEdits(null, [{
+        range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+        text: newLineText,
+        forceMoveMarkers: true
+    }]);
+
+    // Move cursor to the new line
+    window.editor.setPosition(newPosition);
+}
+
 function handleButtonPress(buttonIndex) {
+
+    console.log("we came here for some reason!");
 
     if (isSelectionBoxFocused) {
         switch (buttonIndex) {
-            case 12: // Up
-                selectedIndex = selectedIndex !== selectionBox.children.length - 1 ? selectedIndex + 1: selectedIndex;
+            case 15: // right
+                selectedIndex = selectedIndex !== selectionBox.children.length - 1 ? selectedIndex + 1: 0;
                 updateSelectionBox();
                 break;
-            case 13: // Down
-                selectedIndex = selectedIndex !== 0 ? selectedIndex - 1: 0;
+            case 14: // left
+                selectedIndex = selectedIndex !== 0 ? selectedIndex - 1: selectionBox.children.length - 1;
                 updateSelectionBox();
                 break;
             case 0: // A (Select)
-                // selectOption(selectionBox.children[selectedIndex]);
-                // hideOverlay();
+                selected_option = selectedIndex;
+                option_selected = true;
+                if(selectedIndex === 0){
+                    updateInnerBox("if(){}");
+                }
                 break;
             case 1: // B (Cancel)
-                hideOverlay();
                 break;
             case 2:
-                // console.log("Button Y pressed!");
+                hideOverlay();
                 break;
         }
     }else {
         switch (buttonIndex) {
             case 0:
                 // console.log("Button A pressed!");
+                if(!option_selected){
+                    break;
+                }
+                if(selected_option === 0){
+                    console.log("Trying to enter a if statement into the editor");
+                    addIfStatement();
+                    updateInnerBox("");
+                    option_selected = false;
+                }
                 break;
             case 1:
                 // console.log("Button B pressed!");
-                // hideOverlay();
                 break;
             case 2:
                 // console.log("Button Y pressed!");
@@ -223,21 +286,17 @@ function handleButtonPress(buttonIndex) {
             case 3:
                 // console.log("Button X pressed!");
                 if (lastHighlightedWord) {
-                    // console.log("WEREEARR");
                     window.editor.trigger("custom1", "editor.action.triggerSuggest", {});
-                    //                     // continue;
                 }
                 break;
-            case 4:
+            case 4: //L1
                 // Toggle between "touch" and "function"
-                let test = document.getElementsByClassName("suggest-widget");
-                console.log("this is test: ", test);
-                if(test.length === 0){
+                let suggest = document.getElementsByClassName("suggest-widget");
+                if(suggest.length === 0){
                     break;
                 }
-                test = test[0];
-                if(test.style.display === "none" || test.style.visibility === "hidden"){
-                    console.log("it is HIDDEN");
+                suggest = suggest[0];
+                if(suggest.style.display === "none" || suggest.style.visibility === "hidden"){
                     break;
                 }
 
@@ -285,7 +344,6 @@ function handleButtonPress(buttonIndex) {
                 // console.log("Button up pressed!");
                 if(isSuggestionWidgetVisible) {
                     window.editor.trigger("custom1", "selectPrevSuggestion", {});
-                    console.log("wer areraerjkalkwejr");
                 }else {
                     window.editor.trigger("source", "cursorUp", {});
                 }
@@ -325,33 +383,105 @@ function handleAxisMovement(axisIndex, value) {
         return;
     }
 
+    const now = Date.now();
+    let direction;
+    let state;
+
     switch (axisIndex) {
-        case 0:
-            // console.log("Left joystick horizontal movement:", value);
-            break;
-        case 1:
-            // console.log("Left joystick vertical movement:", value);
-            break;
-        case 2:
-            // console.log("Right joystick horizontal movement:", value);
-            break;
-        case 3:
-            // console.log("Right joystick vertical movement:", value);
-            break;
-        case 4:
-            // console.log("Left trigger value:", value);
+        case 4: // Case 2 and 3 are not used
+            // console.log("Right horizontal trigger value:", value);
+            if(Math.abs(value) <= MovementConfig.deadzone)
+                return;
+
+            direction = value > 0 ? 1 : -1;
+            state = movementState.horizontal;
+
+            if (state.direction !== direction) {
+                state.direction = direction;
+                state.currentDelay = MovementConfig.initialDelay;
+                state.lastMoveTime = now;
+                if(direction === 1)
+                    window.editor.trigger("source", "cursorRight", {});
+                else
+                    window.editor.trigger("source", "cursorLeft", {});
+
+                return;
+            }
+
+            if (now - state.lastMoveTime > state.currentDelay) {
+
+                if(direction === 1)
+                    window.editor.trigger("source", "cursorRight", {});
+                else
+                    window.editor.trigger("source", "cursorLeft", {});
+
+                state.currentDelay = Math.max(
+                    MovementConfig.minDelay,
+                    state.currentDelay * MovementConfig.acceleration
+                );
+                state.lastMoveTime = now;
+            }
+
+            movementState.horizontal = state;
+            movementState.vertical.currentDelay = MovementConfig.initialDelay;
             break;
         case 5:
-            // console.log("Right trigger value:", value);
+            // console.log("Right vertical trigger value:", value);
+            if(Math.abs(value) <= MovementConfig.deadzone)
+                return;
+
+            direction = value > 0 ? 1 : -1;
+            state = movementState.vertical;
+
+            if (state.direction !== direction) {
+                state.direction = direction;
+                state.currentDelay = MovementConfig.initialDelay;
+                state.lastMoveTime = now;
+
+                if(direction !== 1)
+                    window.editor.trigger("source", "cursorUp", {});
+                else
+                    window.editor.trigger("source", "cursorDown", {});
+                return;
+            }
+
+            if (now - state.lastMoveTime > state.currentDelay) {
+                if(direction !== 1)
+                    window.editor.trigger("source", "cursorUp", {});
+                else
+                    window.editor.trigger("source", "cursorDown", {});
+
+                state.currentDelay = Math.max(
+                    MovementConfig.minDelay,
+                    state.currentDelay * MovementConfig.acceleration
+                );
+                state.lastMoveTime = now;
+            }
+            movementState.vertical = state;
+            movementState.horizontal.currentDelay = MovementConfig.initialDelay;
             break;
-        case 6: // L2 button (often mapped as an axis)
-            // // console.log("L2 button value:", value);
+        case 6: // R2 button
+            if (value > TRIGGER_THRESHOLD && !isRedoTriggered) {
+                // console.log("R2 button value:", value);
+                window.editor.trigger("source", "redo");
+                isRedoTriggered = true;
+            } else if (value <= TRIGGER_THRESHOLD) {
+                isRedoTriggered = false;
+                // console.log("Redo cleared");
+            }
             break;
-        case 7: // R2 button (often mapped as an axis)
-            // // console.log("R2 button value:", value);
+        case 7: // L2 button
+            if (value > TRIGGER_THRESHOLD && !isUndoTriggered) {
+                // console.log("L2 button value:", value);
+                window.editor.trigger("source", "undo");
+                isUndoTriggered = true;
+            } else if (value <= TRIGGER_THRESHOLD) {
+                isUndoTriggered = false;
+                // console.log("undo cleared");
+            }
             break;
         default:
-            // // console.log(`Axis ${axisIndex} value: ${value}`);
+            // console.log(`Axis ${axisIndex} value: ${value}`);
             break;
     }
 }
@@ -367,7 +497,6 @@ function update() {
                         handleButtonPress(index);
                         buttonStates[index] = true;
                     }
-                    // console.log(`Button ${index} pressed`);
                 }else{
                     buttonStates[index] = false;
                 }
@@ -375,14 +504,61 @@ function update() {
 
             // Check axes (e.g., joysticks)
             gamepad.axes.forEach((axis, index) => {
-                if (Math.abs(axis) > 0.1) { // Add a deadzone to ignore small movements
-                    // console.log(`Axis ${index} value: ${axis}`);
-                    handleAxisMovement(index, axis);
+
+                if(index === 0 || index === 1 || index === 2 || index === 3){
+                    // console.log("this is the index: ", index);
+                    return;
+                }
+                if(index === 6 || index === 7){ // Because L2 and R2 have a default value of -1 for some reason
+                    handleAxisMovement(index, axis)
+                    return;
+                }
+                // New axis handling logic for right stick
+                const horizontalValue = gamepad.axes[4]; // Axis 0 = right horizontal
+                const verticalValue = gamepad.axes[5];   // Axis 1 = right vertical
+
+                // Check if either axis is active
+                const horizontalActive = Math.abs(horizontalValue) > MovementConfig.deadzone;
+                const verticalActive = Math.abs(verticalValue) > MovementConfig.deadzone;
+
+                if (horizontalActive || verticalActive) {
+                    // Determine dominant axis
+                    if (Math.abs(horizontalValue) > Math.abs(verticalValue)) {
+                        handleAxisMovement(4, horizontalValue);
+                        // Reset vertical movement state
+                        movementState.vertical.direction = false;
+                        movementState.vertical.currentDelay = MovementConfig.initialDelay;
+                    } else {
+                        handleAxisMovement(5, verticalValue);
+                        // Reset horizontal movement state
+                        movementState.horizontal.direction = false;
+                        movementState.horizontal.currentDelay = MovementConfig.initialDelay;
+                    }
+                    return;
+                } else {
+                    // Reset both directions when stick is neutral
+                    movementState.horizontal.direction = false;
+                    movementState.horizontal.currentDelay = MovementConfig.initialDelay;
+                    movementState.vertical.currentDelay = MovementConfig.initialDelay;
+                    movementState.vertical.direction = false;
+                }
+
+
+                if (Math.abs(axis) <= MovementConfig.deadzone) {
+                    // Reset movement state when neutral
+                    if (index === 4){
+                        movementState.horizontal.direction = false;
+                        movementState.horizontal.currentDelay = MovementConfig.initialDelay;
+                    }
+                    if (index === 5){
+                        movementState.vertical.direction = false;
+                        movementState.vertical.currentDelay = MovementConfig.initialDelay;
+                    }
+                    return;
                 }
             });
         }
     }
     window.editor.onDidChangeCursorPosition(highlightCursorWord);
-    // console.log("here updated")
     requestAnimationFrame(update); // Continue polling
 }
