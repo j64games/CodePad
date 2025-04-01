@@ -1,4 +1,18 @@
-import {touch_suggestion_type, touch_suggestions} from "./suggestions.js";
+// import {touch_suggestion_type, touch_suggestions} from "./suggestions.js";
+import * as monaco from "monaco-editor";
+import {getWidgetVisibility} from "./common.js";
+
+const touch_suggestions = [
+    {label: "touch(Grass)", type: "touch"},
+    {label: "touch(Cow)", type: "touch"},
+    {label: "touch(Rock)", type: "touch"},
+    {label: "touch(Human)", type: "touch"},
+    {label: "sleep()", type: "function"},
+    {label: "hit(Human)", type: "function"},
+    {label: "hit(self)", type: "function"},
+];
+
+let touch_suggestion_type = "touch";
 
 let option_selected = false;
 let selected_option = null;
@@ -29,46 +43,13 @@ let isUndoTriggered = false;
 let isRedoTriggered = false;
 const TRIGGER_THRESHOLD = 0.95;
 
-
-window.updateMonacoEditor = function(data) {
-    if (window.editor) {
-        const currentValue = window.editor.getValue();
-        window.editor.setValue(currentValue + "\n" + data);
-    }
-};
-
 // Example: Send data to C++ backend
-function sendToCpp(data) {
-    console.log("From js, called sendToCpp");
-    window.sendToMonaco(data).then(response => {
-        console.log("Response from C++:", response);
-    });
-}
-
-window.addEventListener("gamepadconnected", (e) => {
-    const gp = navigator.getGamepads()[e.gamepad.index];
-    console.log(
-        `Gamepad connected at index ${gp.index}: ${gp.id} with ${gp.buttons.length} buttons, ${gp.axes.length} axes.`,
-    );
-    // // Log button states
-    // gp.buttons.forEach((button, btnIndex) => {
-    //     console.log(`      Button ${btnIndex}:`);
-    // });
-    //
-    // // Log axes states
-    // gp.axes.forEach((axis, axisIndex) => {
-    //     console.log(`      Axis ${axisIndex}: `);
-    // });
-});
-
-
-window.addEventListener("gamepaddisconnected", (e) => {
-    console.log(
-        "Gamepad disconnected from index %d: %s",
-        e.gamepad.index,
-        e.gamepad.id,
-    );
-});
+// function sendToCpp(data) {
+//     console.log("From js, called sendToCpp");
+//     window.sendToMonaco(data).then(response => {
+//         console.log("Response from C++:", response);
+//     });
+// }
 
 function getWordAtPosition(model, position) {
     const lineContent = model.getLineContent(position.lineNumber);
@@ -101,12 +82,16 @@ function getWordAtPosition(model, position) {
 
 let currentDecorations = [];
 let lastHighlightedWord = "";
+export function getLastHighlightedWord(){
+    console.log("this is the last word in func: ", lastHighlightedWord);
+    return lastHighlightedWord;
+}
 let isSelectionBoxFocused = true;
 let selectedIndex = 0;
 let buttonStates = new Array(17).fill(false);
 
 
-const operators = ["==", "!=", ">", "<", ">=", "<=", "&&", "||", "+", "-", "*", "/", "%", "="];
+export const operators = ["==", "!=", ">", "<", ">=", "<=", "&&", "||", "+", "-", "*", "/", "%", "="];
 function highlightCursorWord() {
     const model = window.editor.getModel();
     if (!model) return;
@@ -133,23 +118,28 @@ function highlightCursorWord() {
     if (word === lastHighlightedWord) return; // Skip redundant updates
 
     lastHighlightedWord = word;
-
+    console.log("the last highlighted word is this: ", lastHighlightedWord);
     // Highlight the detected word or operator
     const startColumn = wordPosInfo[0];
     const endColumn = wordPosInfo[1];
 
-    currentDecorations = window.editor.deltaDecorations(currentDecorations, [
+    const newDecoration = [
         { // + 1 because monaco col starts at 1
             range: new monaco.Range(position.lineNumber, startColumn + 1, position.lineNumber, endColumn + 1),
             options: { inlineClassName: "highlighted-word" }
         }
-    ]);
+    ];
+    currentDecorations = window.editor.deltaDecorations(currentDecorations, newDecoration);
+    console.log("this is the last word:", lastHighlightedWord);
+    console.log("this is the last word func: ", lastHighlightedWord);
     // console.log("The last word ", lastHighlightedWord);
 }
 
 function clearHighlight() {
     if (lastHighlightedWord !== "") {
-        currentDecorations = window.editor.deltaDecorations(currentDecorations, []);
+        console.log("the WORD was CLEARED");
+        const newDecoration = [];
+        currentDecorations = window.editor.deltaDecorations(currentDecorations, newDecoration);
         lastHighlightedWord = "";
     }
 }
@@ -177,11 +167,6 @@ function hideOverlay() {
     selectionBox.style.display = "none";
     isSelectionBoxFocused = false;
 }
-let isSuggestionWidgetVisible = false;
-
-window.editor.onDidChangeContentWidget((event) => {
-    isSuggestionWidgetVisible = event.isVisible;
-});
 
 function addIfStatement() {
     //TODO always add to a new line + have the correct amount of tabs
@@ -303,7 +288,6 @@ function handleButtonPress(buttonIndex) {
                 }
 
 
-                // if (isSuggestionWidgetVisible) {
                 console.log("Button L1 pressed!");
                 touch_suggestion_type = touch_suggestion_type === "touch" ? "function" : "touch";
                 let touch = document.getElementById("touch");
@@ -344,7 +328,7 @@ function handleButtonPress(buttonIndex) {
                 break;
             case 12:
                 // console.log("Button up pressed!");
-                if(isSuggestionWidgetVisible) {
+                if(getWidgetVisibility()) {
                     window.editor.trigger("custom1", "selectPrevSuggestion", {});
                 }else {
                     window.editor.trigger("source", "cursorUp", {});
@@ -352,7 +336,7 @@ function handleButtonPress(buttonIndex) {
                 break;
             case 13:
                 // console.log("Button down pressed!");
-                if(isSuggestionWidgetVisible) {
+                if(getWidgetVisibility()) {
                     window.editor.trigger("custom1", "selectNextSuggestion", {});
                 }else {
                     window.editor.trigger("source", "cursorDown", {});
@@ -489,6 +473,7 @@ function handleAxisMovement(axisIndex, value) {
 }
 // Function to update gamepad state
 export function update() {
+    console.log("update was called");
     const gamepads = navigator.getGamepads();
     for (const gamepad of gamepads) {
         if (gamepad) {
@@ -561,6 +546,37 @@ export function update() {
             });
         }
     }
-    window.editor.onDidChangeCursorPosition(highlightCursorWord);
     requestAnimationFrame(update); // Continue polling
+}
+
+
+export function setupInput()
+{
+    window.updateMonacoEditor = function(data) {
+        if (window.editor) {
+            const currentValue = window.editor.getValue();
+            window.editor.setValue(currentValue + "\n" + data);
+        }
+    };
+    window.addEventListener("gamepadconnected", (e) => {
+        const gp = navigator.getGamepads()[e.gamepad.index];
+        console.log(
+            `Gamepad connected at index ${gp.index}: ${gp.id} with ${gp.buttons.length} buttons, ${gp.axes.length} axes.`,
+        );
+    });
+
+    window.addEventListener("gamepaddisconnected", (e) => {
+        console.log(
+            "Gamepad disconnected from index %d: %s",
+            e.gamepad.index,
+            e.gamepad.id,
+        );
+    });
+
+    if(!window.editor)
+        console.log("the editor is still undefined in inputhandler!!!!!");
+
+    // Start this after the editor has been initialized
+    window.editor.onDidChangeCursorPosition(highlightCursorWord);
+    requestAnimationFrame(update);
 }

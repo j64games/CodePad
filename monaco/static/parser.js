@@ -1,16 +1,43 @@
-import antlr4 from 'antlr4';
-import MyGrammarLexer from '../ANTLR/CLexer.js';
-import MyGrammarParser from '../ANTLR/CParser';
+// import antlr4 from 'antlr4';
+// import CLexer from '../ANTLR/CLexer.js';
+import CParser from '../ANTLR/CParser.js';
 
-function parseInput(text) {
-    const chars = new antlr4.InputStream(text);
-    const lexer = new MyGrammarLexer(chars);
-    const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new MyGrammarParser(tokens);
-    return parser.startRule();
+
+export class PositionListener extends CParser {
+    constructor(targetLine, targetColumn) {
+        super();
+        this.targetLine = targetLine;
+        this.targetColumn = targetColumn;
+        this.deepestNode = null;
+    }
+
+    enterEveryRule(ctx) {
+        const startToken = ctx.start;
+        const stopToken = ctx.stop;
+
+        if (!startToken || !stopToken) return;
+
+        const startLine = startToken.line;
+        const startCol = startToken.column;
+        const stopLine = stopToken.line;
+        const stopCol = stopToken.column + (stopToken.stop - stopToken.start);
+
+        if (this.isWithin(startLine, startCol, stopLine, stopCol)) {
+            if (!this.deepestNode || ctx.depth > this.deepestNode.depth) {
+                this.deepestNode = ctx;
+            }
+        }
+    }
+
+    isWithin(startLine, startCol, stopLine, stopCol) {
+        return (
+            (this.targetLine > startLine || (this.targetLine === startLine && this.targetColumn >= startCol)) &&
+            (this.targetLine < stopLine || (this.targetLine === stopLine && this.targetColumn <= stopCol))
+        );
+    }
 }
 
-window.parseInput = parseInput;
+// window.parseInput = parseInput;
 
 // import antlr4 from 'https://cdn.jsdelivr.net/npm/antlr4@4.12.0/dist/antlr4.web.js';
 // import CLexer from './CLexer.js';

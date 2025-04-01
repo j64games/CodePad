@@ -1,21 +1,30 @@
+import * as monaco from "monaco-editor";
+import CLexer from "../ANTLR/CLexer.js";
+import CParser from "../ANTLR/CParser.js";
 
-// import ASTService from './parser.js';
-document.addEventListener("DOMContentLoaded", function () {
-    require.config({ paths: { vs: "https://unpkg.com/monaco-editor@0.33.0/min/vs" } });
+import {PositionListener} from "./parser.js";
+import antlr4 from "antlr4";
+import {update} from "./inputHandler.js";
 
-    let customDiv = null;
-    let toAddHtml = null;
+export function setupMonaco()
+{
+    console.log("this waas calledd in monaco");
+    document.addEventListener("DOMContentLoaded", function () {
+        // require.config({ paths: { vs: "https://unpkg.com/monaco-editor@0.33.0/min/vs" } });
 
-    // Clear all children
-    function clearCustomDivChildren() {
-        if (customDiv) {
-            while (customDiv.firstChild) {
-                customDiv.removeChild(customDiv.firstChild);
+        let customDiv = null;
+        let toAddHtml = null;
+
+        // Clear all children
+        function clearCustomDivChildren() {
+            if (customDiv) {
+                while (customDiv.firstChild) {
+                    customDiv.removeChild(customDiv.firstChild);
+                }
             }
         }
-    }
 
-    require(["vs/editor/editor.main"], function () {
+        // require(["vs/editor/editor.main"], function () {
 
         monaco.languages.register({ id: 'custom1' });
 
@@ -56,13 +65,31 @@ document.addEventListener("DOMContentLoaded", function () {
 
         monaco.languages.registerCompletionItemProvider('custom1', {
             provideCompletionItems: function(model, position) {
-                const codeBefore = model.getValueInRange({
-                    startLineNumber: position.lineNumber,
-                    startColumn: 1,
-                    endLineNumber: position.lineNumber,
-                    endColumn: position.column
-                });
+                // const codeBefore = model.getValueInRange({
+                //     startLineNumber: position.lineNumber,
+                //     startColumn: 1,
+                //     endLineNumber: position.lineNumber,
+                //     endColumn: position.column
+                // });
 
+                const code = model.getValue();
+                const line = position.lineNumber;
+                const column = position.column - 1; // Convert to 0-based
+
+                // Parse the code with ANTLR
+                const input = new antlr4.InputStream(code);
+                const lexer = new CLexer(input);
+                const tokens = new antlr4.CommonTokenStream(lexer);
+                const parser = new CParser(tokens);
+                parser.buildParseTrees = true;
+                const parseTree = parser.compilationUnit(); // Adjust to your root rule
+
+                // Find the deepest node at the cursor position
+                const listener = new PositionListener(line, column);
+                antlr4.tree.ParseTreeWalker.DEFAULT.walk(listener, parseTree);
+                const contextNode = listener.deepestNode;
+
+                console.log("This is the contextNode", contextNode);
 
                 let suggestions = [];
 
@@ -71,6 +98,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (lastHighlightedWord === "touch") {
 
                     if(!customDiv){
+                        //TODO make this dynamical
+
                         // the html to add as a child in the custom div upon creation
                         toAddHtml = document.createElement('div');
                         toAddHtml.style.display = "flex"; // Arrange children in a row
@@ -112,16 +141,6 @@ document.addEventListener("DOMContentLoaded", function () {
                         (suggestion) => suggestion.type === touch_suggestion_type
                     );
                     console.log("these are the filtered ones: ", filteredSuggestions);
-                    // Create a list of available types with the current type highlighted
-                    // const availableTypes = touch_suggestions.map((item) => {
-                    //     console.log("this is the type in keys: ", item.type);
-                    //     return item.type === touch_suggestion_type
-                    //         ? `<span class="suggestionClassSelected" style="border: 1px solid #ccc; padding: 2px; background-color: #f0f0f0;">${item.type}</span>`
-                    //         : `<span class="suggestionClassNotSelected">${item.type}</span>`;
-                    // }).join(', ');
-
-                    // Add a header to the suggestions
-
 
                     suggestions = [
                         ...filteredSuggestions.map((suggestion) => ({
@@ -197,57 +216,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
 
-        // Register a completion item provider for the 'cpp' language
-        // monaco.languages.registerCompletionItemProvider('cpp', {
-        //     provideCompletionItems: function(model, position) {
-        //         // Get the text before the cursor
-        //         const textUntilPosition = model.getValueInRange({
-        //             startLineNumber: position.lineNumber,
-        //             startColumn: 1,
-        //             endLineNumber: position.lineNumber,
-        //             endColumn: position.column
-        //         });
-        //
-        //         const textAbove = position.lineNumber !== 0 ? model.getValueInRange({
-        //             startLineNumber: position.lineNumber - 1,
-        //             startColumn: 1,
-        //             endLineNumber: position.lineNumber,
-        //             endColumn: position.column
-        //         }) : "NULL";
-        //
-        //         // Define custom suggestions
-        //         const suggestions = [
-        //             {
-        //                 label: 'console.log', // Text displayed in the suggestion list
-        //                 kind: monaco.languages.CompletionItemKind.Function, // Icon type
-        //                 insertText: 'console.log(${1:message});', // Text to insert
-        //                 insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, // Treat as snippet
-        //                 detail: 'Log a message to the console', // Description
-        //                 documentation: 'Logs a message to the browser console.' // Detailed documentation
-        //             },
-        //         // Filter suggestions based on the text before the cursor
-        //         const filteredSuggestions = suggestions.filter(suggestion => {
-        //             // Normalize the suggestion label and textUntilPosition for comparison
-        //             const normalizedLabel = suggestion.label.replace(/\t/g, '    '); // Replace \t with spaces
-        //             const normalizedText = textUntilPosition.replace(/\t/g, '    '); // Replace \t with spaces
-        //
-        //             // Check if the suggestion label starts with the normalized text
-        //             if (normalizedLabel.toLowerCase().startsWith(normalizedText.toLowerCase())) {
-        //                 // Additional context check for "Put NPC"
-        //                 if (suggestion.label.includes('A:') && textAbove.startsWith('Put NPC')) {
-        //                     return true;
-        //                 }
-        //                 return true;
-        //             }
-        //             return false;
-        //         });
-        //
-        //         return {
-        //             suggestions: filteredSuggestions
-        //         };
-        //     }
-        // });
-
         // Start this after the editor has been initialized
         requestAnimationFrame(update);
 
@@ -306,122 +274,69 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             ]);
         });
-    });
+        // });
 
-
-    // Track if the custom HTML has been injected
-    let isCustomDivInjected = false;
+    //to here
+        // Track if the custom HTML has been injected
+        let isCustomDivInjected = false;
 
 
 // Function to create/update the custom div
-    const syncCustomDivVisibility = (suggestWidget) => {
-        // Check if the widget is visible
-        const isWidgetVisible =
-            suggestWidget.style.display !== 'none' &&
-            suggestWidget.style.visibility !== 'hidden';
+        const syncCustomDivVisibility = (suggestWidget) => {
+            // Check if the widget is visible
+            const isWidgetVisible =
+                suggestWidget.style.display !== 'none' &&
+                suggestWidget.style.visibility !== 'hidden';
 
-        // Create the custom div if it doesn't exist
-        if (!customDiv && isWidgetVisible) {
-            customDiv = document.createElement('div');
-            customDiv.className = 'custom-injected-div';
-            // customDiv.textContent = '🎉 Custom HTML!';
-            customDiv.style.cssText = `
-      padding: 8px;
-      background: #2d2d2d;
-      width: 97%;
-      z-index: 1000;
-    `;
-            console.log("toAddHTML: ", toAddHtml);
-            customDiv.appendChild(toAddHtml);
-            suggestWidget.appendChild(customDiv);
-            isCustomDivInjected = true;
-        }
+            // Create the custom div if it doesn't exist
+            if (!customDiv && isWidgetVisible) {
+                customDiv = document.createElement('div');
+                customDiv.className = 'custom-injected-div';
+                customDiv.style.cssText = `
+              padding: 8px;
+              background: #2d2d2d;
+              width: 97%;
+              z-index: 1000;
+            `;
+                customDiv.appendChild(toAddHtml);
+                suggestWidget.appendChild(customDiv);
+                isCustomDivInjected = true;
+            }
 
-        // Sync visibility with the widget
-        if (customDiv) {
-            customDiv.style.display = isWidgetVisible ? 'block' : 'none';
-            customDiv.style.visibility = isWidgetVisible ? 'visible' : 'hidden';
-        }
-    };
+            // Sync visibility with the widget
+            if (customDiv) {
+                customDiv.style.display = isWidgetVisible ? 'block' : 'none';
+                customDiv.style.visibility = isWidgetVisible ? 'visible' : 'hidden';
+            }
+        };
 
 // Observe the suggest-widget for visibility changes
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            const suggestWidget = document.querySelector('.suggest-widget');
-            if (!suggestWidget) return;
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                const suggestWidget = document.querySelector('.suggest-widget');
+                if (!suggestWidget) return;
 
-            // Case 1: Widget style changes (visibility)
-            if (mutation.attributeName === 'style') {
-                syncCustomDivVisibility(suggestWidget);
-            }
+                // Case 1: Widget style changes (visibility)
+                if (mutation.attributeName === 'style') {
+                    syncCustomDivVisibility(suggestWidget);
+                }
 
-            // Case 2: Widget is added to the DOM (initial creation)
-            if (mutation.addedNodes.length > 0) {
-                syncCustomDivVisibility(suggestWidget);
-            }
+                // Case 2: Widget is added to the DOM (initial creation)
+                if (mutation.addedNodes.length > 0) {
+                    syncCustomDivVisibility(suggestWidget);
+                }
+            });
         });
-    });
 
 // Start observing the entire document
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style'],
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style'],
+        });
+
     });
-    // let called_once = false;
-    // const checkForWidget = setInterval(() => {
-    //     if(called_once)
-    //         return;
-    //
-    //     const suggestWidget = document.querySelector('.suggest-widget');
-    //
-    //     if (suggestWidget) {
-    //         clearInterval(checkForWidget);
-    //         const observer = new MutationObserver((mutations) => {
-    //             mutations.forEach((mutation) => {
-    //                 if (mutation.attributeName === 'style') {
-    //                     const isVisible =
-    //                         suggestWidget.style.display !== 'none' &&
-    //                         suggestWidget.style.visibility !== 'hidden';
-    //
-    //                     if (isVisible) {
-    //                         // Wait for Monaco to populate the widget's content
-    //                         const waitForContent = setInterval(() => {
-    //                             const listRows = suggestWidget.querySelector('.monaco-list-rows');
-    //                             if (listRows && listRows.children.length > 0) {
-    //                                 clearInterval(waitForContent);
-    //                                 injectCustomDiv();
-    //                             }
-    //                         }, 50);
-    //                     }
-    //                 }
-    //             });
-    //         });
-    //
-    //         observer.observe(suggestWidget, { attributes: true, attributeFilter: ['style'] });
-    //
-    //         // Function to inject the custom div
-    //         const injectCustomDiv = () => {
-    //             let customDiv = suggestWidget.querySelector('.custom-injected-div');
-    //             if (!customDiv) {
-    //                 customDiv = document.createElement('div');
-    //                 customDiv.className = 'custom-injected-div';
-    //                 customDiv.textContent = '🎉 Custom HTML injected!';
-    //                 customDiv.style.cssText = `
-    //     padding: 8px;
-    //     background: #f0f0f0;
-    //     position: absolute;
-    //     bottom: 0;
-    //     left: 0;
-    //     width: 100%;
-    //   `;
-    //                 suggestWidget.appendChild(customDiv);
-    //             }
-    //         };
-    //     } else {
-    //         console.warn('Suggest widget not found.');
-    //     }
-    //
-    // }, 100);
-});
+
+
+}
