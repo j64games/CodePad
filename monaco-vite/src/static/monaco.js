@@ -4,7 +4,7 @@ import CParser from "../ANTLR/CParser.js";
 
 import {PositionListener, findDeepestNodeAtPosition} from "./parser.js";
 import antlr4 from "antlr4";
-import {update, getLastHighlightedWord, operators} from "./inputHandler.js";
+import {getLastHighlightedWord, operators} from "./inputHandler.js";
 
 import {setVisibilityWidget} from "./common.js";
 
@@ -133,21 +133,20 @@ export function setupMonaco()
 
     monaco.languages.registerCompletionItemProvider('custom1', {
         provideCompletionItems: function(model, position) {
-            console.log("hahahahahaha");
 
             const code = model.getValue();
             const line = position.lineNumber;
             const column = position.column - 1; // Convert to 0-based
 
 
-            const contextNode = findDeepestNodeAtPosition(code, line, column);
+            // const contextNode = findDeepestNodeAtPosition(code, line, column);
 
-            console.log("This is the contextNode", contextNode);
+            // console.log("This is the contextNode", contextNode);
 
             let suggestions = [];
 
             // Suggestions for the word "touch"
-            console.log("The last highlighted word is: ", getLastHighlightedWord())
+            console.log("The last highlighted word is IN THE SUGGESTION PROVIDER: ", getLastHighlightedWord())
             if (getLastHighlightedWord() === "touch") {
 
                 if(!customDiv){

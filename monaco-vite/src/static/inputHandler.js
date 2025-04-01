@@ -81,10 +81,12 @@ function getWordAtPosition(model, position) {
 }
 
 let currentDecorations = [];
-let lastHighlightedWord = "";
+export let wordState = {
+    lastHighlightedWord: "",
+};
 export function getLastHighlightedWord(){
-    console.log("this is the last word in func: ", lastHighlightedWord);
-    return lastHighlightedWord;
+    console.log("this is the last word in func: ", wordState.lastHighlightedWord);
+    return wordState.lastHighlightedWord;
 }
 let isSelectionBoxFocused = true;
 let selectedIndex = 0;
@@ -115,10 +117,10 @@ function highlightCursorWord() {
         return;
     }
 
-    if (word === lastHighlightedWord) return; // Skip redundant updates
+    if (word === wordState.lastHighlightedWord) return; // Skip redundant updates
 
-    lastHighlightedWord = word;
-    console.log("the last highlighted word is this: ", lastHighlightedWord);
+    wordState.lastHighlightedWord = word;
+    console.log("the last highlighted word is this: ", wordState.lastHighlightedWord);
     // Highlight the detected word or operator
     const startColumn = wordPosInfo[0];
     const endColumn = wordPosInfo[1];
@@ -130,17 +132,17 @@ function highlightCursorWord() {
         }
     ];
     currentDecorations = window.editor.deltaDecorations(currentDecorations, newDecoration);
-    console.log("this is the last word:", lastHighlightedWord);
-    console.log("this is the last word func: ", lastHighlightedWord);
+    console.log("this is the last word:", wordState.lastHighlightedWord);
+    console.log("this is the last word func: ", wordState.lastHighlightedWord);
     // console.log("The last word ", lastHighlightedWord);
 }
 
 function clearHighlight() {
-    if (lastHighlightedWord !== "") {
+    if (wordState.lastHighlightedWord !== "") {
         console.log("the WORD was CLEARED");
         const newDecoration = [];
         currentDecorations = window.editor.deltaDecorations(currentDecorations, newDecoration);
-        lastHighlightedWord = "";
+        wordState.lastHighlightedWord = "";
     }
 }
 
@@ -224,7 +226,6 @@ function addNewLine(){
 
 function handleButtonPress(buttonIndex) {
 
-    console.log("we came here for some reason!");
 
     if (isSelectionBoxFocused) {
         switch (buttonIndex) {
@@ -272,7 +273,8 @@ function handleButtonPress(buttonIndex) {
                 break;
             case 3:
                 // console.log("Button X pressed!");
-                if (lastHighlightedWord) {
+                if (wordState.lastHighlightedWord) {
+                    console.log("right at the moment of triggering the suggest the word is: ", wordState.lastHighlightedWord);
                     window.editor.trigger("custom1", "editor.action.triggerSuggest", {});
                 }
                 break;
@@ -473,7 +475,6 @@ function handleAxisMovement(axisIndex, value) {
 }
 // Function to update gamepad state
 export function update() {
-    console.log("update was called");
     const gamepads = navigator.getGamepads();
     for (const gamepad of gamepads) {
         if (gamepad) {
@@ -572,9 +573,6 @@ export function setupInput()
             e.gamepad.id,
         );
     });
-
-    if(!window.editor)
-        console.log("the editor is still undefined in inputhandler!!!!!");
 
     // Start this after the editor has been initialized
     window.editor.onDidChangeCursorPosition(highlightCursorWord);
